@@ -359,13 +359,13 @@
       return timerState.audioCtx;
     }
 
-    async function playTone(durationSec, startAt = null) {
+    async function playTone(durationSec, frequencyHz, startAt = null) {
       const ctx = await getAudioContext();
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
 
       oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(2350, ctx.currentTime);
+      oscillator.frequency.setValueAtTime(frequencyHz, ctx.currentTime);
 
       const now = startAt ?? ctx.currentTime;
       gainNode.gain.setValueAtTime(0.0001, now);
@@ -461,7 +461,7 @@
       setPhase('GO', true);
       const ctx = await getAudioContext();
       const scheduledParBeepAt = ctx.currentTime + timerState.parSeconds;
-      playTone(0.3, scheduledParBeepAt);
+      playTone(0.3, 440, scheduledParBeepAt);
 
       const tick = () => {
         if (!timerState.running) return;
@@ -487,14 +487,14 @@
       timerState.delaySeconds = pickDelaySeconds(timerState.delayMin, timerState.delayMax);
       runDelayCountdown(async () => {
         if (!timerState.running) return;
-        await playTone(0.5);
+        await playTone(0.5, 2350);
 
         runParCountdown(async () => {
           if (!timerState.running) return;
           setPhase('PAR', false);
 
           if (timerState.currentRep >= timerState.totalReps) {
-            await playTone(1.0);
+            await playTone(1.0, 440);
             timerState.running = false;
             setPhase('COMPLETE', false);
             return;
