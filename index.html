@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dry Fire Par Timer</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080b10;
+      --panel: #131a24;
+      --panel-border: #233042;
+      --text: #f3f6fb;
+      --muted: #96a4b8;
+      --accent: #34d399;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --button: #2563eb;
+      --button-hover: #1d4ed8;
+      --button-stop: #7f1d1d;
+      --button-stop-hover: #991b1b;
+      --input-bg: #0d1320;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(circle at top, #101a2c 0%, var(--bg) 55%);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+    }
+
+    .app {
+      width: min(760px, 100%);
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0)), var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 1rem;
+      padding: 1rem;
+      box-shadow: 0 24px 40px rgba(0, 0, 0, 0.45);
+    }
+
+    h1 {
+      margin: 0 0 0.75rem;
+      text-align: center;
+      letter-spacing: 0.03em;
+      font-size: clamp(1.1rem, 3.5vw, 1.6rem);
+    }
+
+    .status-shell {
+      border: 2px solid var(--danger);
+      border-radius: 0.9rem;
+      padding: 0.8rem;
+      background: #0c111a;
+      transition: border-color 150ms ease, box-shadow 150ms ease;
+    }
+
+    .status-shell.running {
+      border-color: var(--accent);
+      box-shadow: 0 0 0.8rem rgba(52, 211, 153, 0.28);
+    }
+
+    .phase {
+      text-align: center;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: var(--danger);
+      font-size: clamp(1.1rem, 6vw, 2.1rem);
+      margin: 0;
+    }
+
+    .status-shell.running .phase {
+      color: var(--accent);
+    }
+
+    .countdown {
+      margin: 0.4rem 0 0;
+      text-align: center;
+      font-size: clamp(2.8rem, 12vw, 6rem);
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      font-weight: 900;
+    }
+
+    .meta {
+      margin-top: 0.6rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .settings {
+      margin-top: 1rem;
+      display: grid;
+      gap: 0.9rem;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .field {
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .field label,
+    .group-label {
+      font-size: 0.9rem;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    input,
+    select,
+    button {
+      border-radius: 0.7rem;
+      border: 1px solid var(--panel-border);
+      background: var(--input-bg);
+      color: var(--text);
+      font: inherit;
+      padding: 0.7rem 0.75rem;
+    }
+
+    input:focus,
+    select:focus,
+    button:focus {
+      outline: 2px solid #60a5fa;
+      outline-offset: 1px;
+    }
+
+    .delay-options {
+      display: flex;
+      gap: 0.8rem;
+      align-items: center;
+      flex-wrap: wrap;
+      grid-column: 1 / -1;
+    }
+
+    .delay-options label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--text);
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .delay-grid {
+      grid-column: 1 / -1;
+      display: grid;
+      gap: 0.8rem;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .fixed-only,
+    .random-only {
+      display: none;
+    }
+
+    .actions {
+      margin-top: 1rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.8rem;
+    }
+
+    .btn {
+      min-height: 3.3rem;
+      font-weight: 800;
+      font-size: 1.03rem;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      border: none;
+      transition: transform 80ms ease, background-color 120ms ease;
+    }
+
+    .btn:active {
+      transform: scale(0.99);
+    }
+
+    .btn-start {
+      background: var(--button);
+    }
+
+    .btn-start:hover {
+      background: var(--button-hover);
+    }
+
+    .btn-stop {
+      background: var(--button-stop);
+    }
+
+    .btn-stop:hover {
+      background: var(--button-stop-hover);
+    }
+
+    .hint {
+      margin-top: 0.9rem;
+      color: var(--muted);
+      text-align: center;
+      font-size: 0.87rem;
+    }
+
+    @media (max-width: 700px) {
+      .settings,
+      .delay-grid,
+      .actions {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <h1>Dry Fire Par Timer</h1>
+
+    <section id="statusShell" class="status-shell">
+      <p id="phase" class="phase">STOPPED</p>
+      <p id="countdown" class="countdown">0.0</p>
+      <p id="meta" class="meta">Rep 0 / 0</p>
+    </section>
+
+    <section class="settings" aria-label="timer settings">
+      <div class="delay-options" role="radiogroup" aria-labelledby="delayModeLabel">
+        <span id="delayModeLabel" class="group-label">Delay Mode</span>
+        <label>
+          <input type="radio" name="delayMode" value="random" checked />
+          Random
+        </label>
+        <label>
+          <input type="radio" name="delayMode" value="fixed" />
+          Fixed
+        </label>
+      </div>
+
+      <div class="delay-grid">
+        <div class="field random-only" data-random>
+          <label for="delayMin">Start Delay Min (sec)</label>
+          <input id="delayMin" type="number" min="0" step="0.1" value="1.0" inputmode="decimal" />
+        </div>
+
+        <div class="field random-only" data-random>
+          <label for="delayMax">Start Delay Max (sec)</label>
+          <input id="delayMax" type="number" min="0" step="0.1" value="3.0" inputmode="decimal" />
+        </div>
+
+        <div class="field fixed-only" data-fixed>
+          <label for="delayFixed">Fixed Delay (sec)</label>
+          <input id="delayFixed" type="number" min="0" step="0.1" value="1.5" inputmode="decimal" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="parTime">Par Time (sec)</label>
+        <input id="parTime" type="number" min="0.1" step="0.1" value="2.0" inputmode="decimal" />
+      </div>
+
+      <div class="field">
+        <label for="reps">Number of Reps</label>
+        <input id="reps" type="number" min="1" step="1" value="5" inputmode="numeric" />
+      </div>
+    </section>
+
+    <section class="actions">
+      <button id="startBtn" class="btn btn-start" type="button">START</button>
+      <button id="stopBtn" class="btn btn-stop" type="button">STOP / RESET</button>
+    </section>
+
+    <p class="hint">Use with hearing-safe range setup. Audio starts after user presses START.</p>
+  </main>
+
+  <script>
+    const els = {
+      statusShell: document.getElementById('statusShell'),
+      phase: document.getElementById('phase'),
+      countdown: document.getElementById('countdown'),
+      meta: document.getElementById('meta'),
+      delayMin: document.getElementById('delayMin'),
+      delayMax: document.getElementById('delayMax'),
+      delayFixed: document.getElementById('delayFixed'),
+      parTime: document.getElementById('parTime'),
+      reps: document.getElementById('reps'),
+      startBtn: document.getElementById('startBtn'),
+      stopBtn: document.getElementById('stopBtn'),
+      delayRadios: Array.from(document.querySelectorAll('input[name="delayMode"]')),
+      randomFields: Array.from(document.querySelectorAll('[data-random]')),
+      fixedFields: Array.from(document.querySelectorAll('[data-fixed]'))
+    };
+
+    const timerState = {
+      running: false,
+      currentRep: 0,
+      totalReps: 0,
+      delaySeconds: 0,
+      parSeconds: 0,
+      phase: 'stopped',
+      timeoutId: null,
+      rafId: null,
+      delayDeadline: 0,
+      parStartTime: 0,
+      audioCtx: null
+    };
+
+    const formatSeconds = (seconds) => Math.max(0, seconds).toFixed(1);
+
+    function getDelayMode() {
+      return els.delayRadios.find((r) => r.checked)?.value || 'random';
+    }
+
+    function syncDelayModeUI() {
+      const mode = getDelayMode();
+      const showRandom = mode === 'random';
+      els.randomFields.forEach((el) => {
+        el.style.display = showRandom ? 'grid' : 'none';
+      });
+      els.fixedFields.forEach((el) => {
+        el.style.display = showRandom ? 'none' : 'grid';
+      });
+    }
+
+    function setRunningStyles(isRunning) {
+      els.statusShell.classList.toggle('running', isRunning);
+    }
+
+    function setPhase(label, isRunning) {
+      timerState.phase = label;
+      els.phase.textContent = label.toUpperCase();
+      setRunningStyles(Boolean(isRunning));
+    }
+
+    function updateMeta() {
+      els.meta.textContent = `Rep ${timerState.currentRep} / ${timerState.totalReps}`;
+    }
+
+    function clearScheduled() {
+      if (timerState.timeoutId) {
+        clearTimeout(timerState.timeoutId);
+        timerState.timeoutId = null;
+      }
+      if (timerState.rafId) {
+        cancelAnimationFrame(timerState.rafId);
+        timerState.rafId = null;
+      }
+    }
+
+    async function getAudioContext() {
+      if (!timerState.audioCtx) {
+        timerState.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (timerState.audioCtx.state === 'suspended') {
+        await timerState.audioCtx.resume();
+      }
+      return timerState.audioCtx;
+    }
+
+    async function playTone(durationSec, startAt = null) {
+      const ctx = await getAudioContext();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(2350, ctx.currentTime);
+
+      const now = startAt ?? ctx.currentTime;
+      gainNode.gain.setValueAtTime(0.0001, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.28, now + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + durationSec);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      oscillator.start(now);
+      oscillator.stop(now + durationSec + 0.03);
+    }
+
+    function stopAndReset() {
+      timerState.running = false;
+      clearScheduled();
+      timerState.phase = 'stopped';
+      timerState.currentRep = 0;
+      timerState.totalReps = 0;
+      els.countdown.textContent = '0.0';
+      setPhase('STOPPED', false);
+      updateMeta();
+    }
+
+    function validateSettings() {
+      const parSeconds = Number.parseFloat(els.parTime.value);
+      const reps = Number.parseInt(els.reps.value, 10);
+
+      if (!Number.isFinite(parSeconds) || parSeconds < 0.1) {
+        alert('Par Time must be at least 0.1 seconds.');
+        return null;
+      }
+
+      if (!Number.isInteger(reps) || reps < 1) {
+        alert('Number of Reps must be a whole number of 1 or greater.');
+        return null;
+      }
+
+      const mode = getDelayMode();
+      let delayMin = 0;
+      let delayMax = 0;
+
+      if (mode === 'random') {
+        delayMin = Number.parseFloat(els.delayMin.value);
+        delayMax = Number.parseFloat(els.delayMax.value);
+
+        if (!Number.isFinite(delayMin) || !Number.isFinite(delayMax) || delayMin < 0 || delayMax < 0) {
+          alert('Random delay min/max must be non-negative numbers.');
+          return null;
+        }
+        if (delayMax < delayMin) {
+          alert('Start Delay Max must be greater than or equal to Start Delay Min.');
+          return null;
+        }
+      } else {
+        const fixed = Number.parseFloat(els.delayFixed.value);
+        if (!Number.isFinite(fixed) || fixed < 0) {
+          alert('Fixed delay must be a non-negative number.');
+          return null;
+        }
+        delayMin = fixed;
+        delayMax = fixed;
+      }
+
+      return { parSeconds, reps, delayMin, delayMax };
+    }
+
+    function pickDelaySeconds(delayMin, delayMax) {
+      if (delayMin === delayMax) return delayMin;
+      return Math.random() * (delayMax - delayMin) + delayMin;
+    }
+
+    function runDelayCountdown(onComplete) {
+      timerState.delayDeadline = performance.now() + timerState.delaySeconds * 1000;
+      setPhase('GET READY', true);
+
+      const tick = () => {
+        if (!timerState.running) return;
+        const remaining = (timerState.delayDeadline - performance.now()) / 1000;
+        els.countdown.textContent = formatSeconds(remaining);
+        if (remaining <= 0) {
+          timerState.rafId = null;
+          onComplete();
+          return;
+        }
+        timerState.rafId = requestAnimationFrame(tick);
+      };
+
+      tick();
+    }
+
+    async function runParCountdown(onComplete) {
+      timerState.parStartTime = performance.now();
+      setPhase('GO', true);
+      const ctx = await getAudioContext();
+      const scheduledParBeepAt = ctx.currentTime + timerState.parSeconds;
+      playTone(0.3, scheduledParBeepAt);
+
+      const tick = () => {
+        if (!timerState.running) return;
+        const elapsed = (performance.now() - timerState.parStartTime) / 1000;
+        const remaining = timerState.parSeconds - elapsed;
+        els.countdown.textContent = formatSeconds(remaining);
+
+        if (remaining <= 0) {
+          els.countdown.textContent = '0.0';
+          timerState.rafId = null;
+          onComplete();
+          return;
+        }
+        timerState.rafId = requestAnimationFrame(tick);
+      };
+
+      tick();
+    }
+
+    async function runRepCycle() {
+      if (!timerState.running) return;
+
+      timerState.delaySeconds = pickDelaySeconds(timerState.delayMin, timerState.delayMax);
+      runDelayCountdown(async () => {
+        if (!timerState.running) return;
+        await playTone(0.5);
+
+        runParCountdown(async () => {
+          if (!timerState.running) return;
+          setPhase('PAR', false);
+
+          if (timerState.currentRep >= timerState.totalReps) {
+            await playTone(1.0);
+            timerState.running = false;
+            setPhase('COMPLETE', false);
+            return;
+          }
+
+          timerState.timeoutId = setTimeout(() => {
+            if (!timerState.running) return;
+            timerState.currentRep += 1;
+            updateMeta();
+            runRepCycle();
+          }, 800);
+        });
+      });
+    }
+
+    async function startTimer() {
+      const settings = validateSettings();
+      if (!settings) return;
+
+      await getAudioContext();
+      clearScheduled();
+
+      timerState.running = true;
+      timerState.currentRep = 1;
+      timerState.totalReps = settings.reps;
+      timerState.parSeconds = settings.parSeconds;
+      timerState.delayMin = settings.delayMin;
+      timerState.delayMax = settings.delayMax;
+
+      updateMeta();
+      runRepCycle();
+    }
+
+    els.delayRadios.forEach((radio) => {
+      radio.addEventListener('change', syncDelayModeUI);
+    });
+
+    els.startBtn.addEventListener('click', () => {
+      startTimer().catch((err) => {
+        console.error(err);
+        alert('Unable to start audio. Tap START again after interacting with the page.');
+      });
+    });
+
+    els.stopBtn.addEventListener('click', stopAndReset);
+
+    syncDelayModeUI();
+    stopAndReset();
+  </script>
+</body>
+</html>
